@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -43,11 +44,13 @@ public class ScheduleSeatServiceImpl implements ScheduleSeatService {
 
         Schedule schedule = scheduleRepository.findById(scheduleId)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Schedule not found"));
+                        new ResourceNotFoundException(
+                                "Schedule not found"));
 
         User admin = userRepository.findByEmail(adminEmail)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Admin user not found"));
+                        new ResourceNotFoundException(
+                                "Admin user not found"));
 
         Train train = schedule.getTrain();
 
@@ -62,7 +65,8 @@ public class ScheduleSeatServiceImpl implements ScheduleSeatService {
         List<Coach> coaches =
                 coachRepository.findByTrainIdAndActiveTrue(train.getId());
 
-        List<ScheduleSeatResponse> responses = new ArrayList<>();
+        List<ScheduleSeatResponse> responses =
+                new ArrayList<>();
 
         for (Coach coach : coaches) {
 
@@ -77,13 +81,13 @@ public class ScheduleSeatServiceImpl implements ScheduleSeatService {
                                 seat.getId()
                         )) {
 
-                    ScheduleSeat scheduleSeat = new ScheduleSeat();
+                    ScheduleSeat scheduleSeat =
+                            new ScheduleSeat();
 
                     scheduleSeat.setSchedule(schedule);
                     scheduleSeat.setSeat(seat);
                     scheduleSeat.setStatus(
-                            ScheduleSeatStatus.AVAILABLE
-                    );
+                            ScheduleSeatStatus.AVAILABLE);
                     scheduleSeat.setHeldUntil(null);
                     scheduleSeat.setHeldBy(null);
                     scheduleSeat.setVersion(0);
@@ -101,7 +105,8 @@ public class ScheduleSeatServiceImpl implements ScheduleSeatService {
 
             normalizeExpiredHold(scheduleSeat);
 
-            responses.add(mapToResponse(scheduleSeat));
+            responses.add(
+                    mapToResponse(scheduleSeat));
         }
 
         return responses;
@@ -115,19 +120,22 @@ public class ScheduleSeatServiceImpl implements ScheduleSeatService {
 
         Schedule schedule = scheduleRepository.findById(scheduleId)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Schedule not found"));
+                        new ResourceNotFoundException(
+                                "Schedule not found"));
 
         List<ScheduleSeat> scheduleSeats =
                 scheduleSeatRepository
                         .findByScheduleOrderBySeatSeatNumber(schedule);
 
-        List<ScheduleSeatResponse> responses = new ArrayList<>();
+        List<ScheduleSeatResponse> responses =
+                new ArrayList<>();
 
         for (ScheduleSeat scheduleSeat : scheduleSeats) {
 
             normalizeExpiredHold(scheduleSeat);
 
-            responses.add(mapToResponse(scheduleSeat));
+            responses.add(
+                    mapToResponse(scheduleSeat));
         }
 
         return responses;
@@ -153,29 +161,41 @@ public class ScheduleSeatServiceImpl implements ScheduleSeatService {
                                 "User not found"
                         ));
 
-        LocalDateTime now = LocalDateTime.now();
+        /*
+         * IMPORTANT:
+         * Hold timestamps are stored and compared using UTC.
+         * This keeps the seat-hold clock consistent between
+         * local development, Render and Aiven MySQL.
+         */
+        LocalDateTime now =
+                LocalDateTime.now(ZoneOffset.UTC);
 
-        if (scheduleSeat.getStatus() == ScheduleSeatStatus.BOOKED) {
+        if (scheduleSeat.getStatus()
+                == ScheduleSeatStatus.BOOKED) {
 
             throw new IllegalStateException(
                     "Seat is already booked"
             );
         }
 
-        if (scheduleSeat.getStatus() == ScheduleSeatStatus.BLOCKED) {
+        if (scheduleSeat.getStatus()
+                == ScheduleSeatStatus.BLOCKED) {
 
             throw new IllegalStateException(
                     "Seat is blocked"
             );
         }
 
-        if (scheduleSeat.getStatus() == ScheduleSeatStatus.HELD) {
+        if (scheduleSeat.getStatus()
+                == ScheduleSeatStatus.HELD) {
 
             if (scheduleSeat.getHeldUntil() != null &&
                     scheduleSeat.getHeldUntil().isAfter(now)) {
 
                 if (scheduleSeat.getHeldBy() != null &&
-                        scheduleSeat.getHeldBy().getId().equals(user.getId())) {
+                        scheduleSeat.getHeldBy()
+                                .getId()
+                                .equals(user.getId())) {
 
                     throw new IllegalStateException(
                             "You already hold this seat"
@@ -188,8 +208,7 @@ public class ScheduleSeatServiceImpl implements ScheduleSeatService {
             }
 
             scheduleSeat.setStatus(
-                    ScheduleSeatStatus.AVAILABLE
-            );
+                    ScheduleSeatStatus.AVAILABLE);
 
             scheduleSeat.setHeldBy(null);
             scheduleSeat.setHeldUntil(null);
@@ -199,8 +218,7 @@ public class ScheduleSeatServiceImpl implements ScheduleSeatService {
                 now.plusMinutes(10);
 
         scheduleSeat.setStatus(
-                ScheduleSeatStatus.HELD
-        );
+                ScheduleSeatStatus.HELD);
 
         scheduleSeat.setHeldBy(user);
         scheduleSeat.setHeldUntil(heldUntil);
@@ -215,7 +233,9 @@ public class ScheduleSeatServiceImpl implements ScheduleSeatService {
             ScheduleSeat scheduleSeat
     ) {
 
-        if (scheduleSeat.getStatus() != ScheduleSeatStatus.HELD) {
+        if (scheduleSeat.getStatus()
+                != ScheduleSeatStatus.HELD) {
+
             return;
         }
 
@@ -226,11 +246,13 @@ public class ScheduleSeatServiceImpl implements ScheduleSeatService {
             return;
         }
 
-        if (!heldUntil.isAfter(LocalDateTime.now())) {
+        LocalDateTime now =
+                LocalDateTime.now(ZoneOffset.UTC);
+
+        if (!heldUntil.isAfter(now)) {
 
             scheduleSeat.setStatus(
-                    ScheduleSeatStatus.AVAILABLE
-            );
+                    ScheduleSeatStatus.AVAILABLE);
 
             scheduleSeat.setHeldBy(null);
             scheduleSeat.setHeldUntil(null);

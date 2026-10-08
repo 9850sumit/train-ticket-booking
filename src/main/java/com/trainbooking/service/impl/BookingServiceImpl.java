@@ -39,6 +39,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -150,7 +151,7 @@ public class BookingServiceImpl implements BookingService {
                 new ArrayList<>();
 
         LocalDateTime now =
-                LocalDateTime.now(BUSINESS_ZONE);
+                LocalDateTime.now(ZoneOffset.UTC);
 
         for (Long scheduleSeatId
                 : request.getScheduleSeatIds()) {
